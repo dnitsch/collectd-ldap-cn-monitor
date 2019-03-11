@@ -2,6 +2,9 @@
 
 collectd python plugin to read out and parse cn=monitor metrics from ldap monitor
 
+requirements:
+---
+`python-ldap`
 
 options:
 ---
@@ -73,3 +76,9 @@ example:
 	</Module>
 </Plugin>
 ```
+
+
+cloudwatch example:
+
+[1]: https://i.ibb.co/wS38S9X/Screenshot-2019-03-11-at-17-26-57.png
+![1]
