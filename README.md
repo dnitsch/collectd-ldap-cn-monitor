@@ -62,9 +62,9 @@ example:
 	Interactive false
 	Import "ping_directory_ldap"
 	<Module ping_directory_ldap>
-		url "ldap://gd-feature-id-1964.dev.iag-aws.clients.amido.com"
-		monitor_admin "cn=DirectoryManager"
-		monitor_pwd "Password_01!!"
+		url "ldap://localhost"
+		monitor_admin "cn=Directory Manager"
+		monitor_pwd "pwd1234"
 		base_dn "cn=monitor"
 		search_filter ""
 		attributes "foo,bar"
