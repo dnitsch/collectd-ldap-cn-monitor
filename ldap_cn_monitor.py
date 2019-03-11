@@ -1,5 +1,5 @@
 '''
-Ping Directorycollectd plugin written in Python.
+ldap cn=monitor collectd plugin written in Python.
 Collects metrics from  LDAP's cn=monitor for Ping Directory and dispatches them to collectd process
 Uses python-ldap
 all connections are handled synchronously
