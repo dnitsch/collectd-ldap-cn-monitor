@@ -92,7 +92,7 @@ env.bak/
 venv.bak/
 
 #IDE
-.vscode/
+.vscode/settings.json
 
 # Spyder project settings
 .spyderproject
@@ -106,3 +106,6 @@ venv.bak/
 
 # mypy
 .mypy_cache/
+
+# local testers
+**/__test*

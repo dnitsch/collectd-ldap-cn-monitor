@@ -9,7 +9,7 @@ all connections are handled synchronously
 import collectd
 import ldap
 import ldap.filter as ldap_filter
-import json
+import json, os, sys
 
 NAME = 'ldap_cn_monitor'
 VALUE_TYPE = 'gauge'
@@ -18,8 +18,6 @@ DEFAULT_LDAP_URL = 'ldap://localhost'
 DEFAULT_MONITOR_ADMIN = 'cn=Directory Manager'
 DEFAULT_MONITOR_PWD = 'pwd1234'
 DEFAULT_BASE_DN = 'cn=monitor'
-# DEFAULT_SEARCH_FILTER = '(objectclass=*)'
-# DEFAULT_RETRIEVE_ATTRS = []
 DEFAULT_SEARCH_FILTER = '(|(cn=Work Queue)(cn=JVM*)(cn=HTTP*)(cn=Gauge CPU*)(cn=Active*)%s)'
 DEFAULT_RETRIEVE_ATTRS = ['current-queue-size','current-administrative-session-queue-sizerejected-count','num-worker-threads','num-busy-worker-threads','value','average-connection-duration-millis','total-connections-accepted','total-invocation-count','current-active-connections','average-processing-time-millis','currentReservedMemoryMB','freeReservedMemoryMB','usedReservedMemoryMB','num-operations-in-progress','num-persistent-searches-in-progress']
 DEFAULT_USER_FILTER = ''
@@ -50,7 +48,7 @@ class LDAPConnector:
 
         return l_init
 
-    def search(self, base_dn=DEFAULT_BASE_DN, search_filter=DEFAULT_SEARCH_FILTER, retrieve_attrs=DEFAULT_RETRIEVE_ATTRS):
+    def search(self, base_dn=DEFAULT_BASE_DN, search_filter=DEFAULT_USER_FILTER, retrieve_attrs=DEFAULT_USER_ATTRS):
         '''
         Sends a search command to LDAP
         Reads the result currently only using all Sends a search command to LDAP
@@ -58,23 +56,19 @@ class LDAPConnector:
         conn = self.init_bind()
         result = (ldap.LDAPError, None)
         searchScope = ldap.SCOPE_SUBTREE
-        additional_user_filter = '(cn=monitor)'
-        additional_attrs  = 'foo,baz'
 
         try:
             # using sync search
             # esc_search_filter = ldap_filter.escape_filter_chars(search_filter, 0)
-            computed_filter = search_filter % additional_user_filter
-            computed_attrs = retrieve_attrs + additional_attrs.split(',')
+            computed_filter = DEFAULT_SEARCH_FILTER % search_filter
+            computed_attrs = DEFAULT_RETRIEVE_ATTRS + retrieve_attrs.split(',')
             sync_search = conn.search_s(base_dn, searchScope, computed_filter, computed_attrs)
             result = (ldap.RES_SEARCH_RESULT, sync_search)
-            conn.unbind_s()
         except ldap.LDAPError as e:
             logger('warn', 'LDAP search failed: %s' % str(e))
-            # we need to unbind the connection nevertheless
-            conn.unbind_s()
             result = (ldap.LDAPError, e)
 
+        conn.unbind_s()
         return result
 
 
@@ -83,11 +77,8 @@ def walk_response(data_set):
     parsed_data = dict()
 
     if type(data_set) == list and len(data_set) >= 1:
-
         for data in data_set:
             if type(data) == tuple and len(data) == 2:
-                # parsed_data[data[0]] = data[1]
-                metric_item = None
                 metric_item = dict()
                 for i in data[1]:
                     if i:
@@ -101,14 +92,6 @@ def walk_response(data_set):
 
 def get_stats():
 
-    '''DEBUG
-    LDAP_URL = DEFAULT_LDAP_URL
-    LDAP_MONITOR_ADMIN = DEFAULT_MONITOR_ADMIN
-    LDAP_MONITOR_PWD = DEFAULT_MONITOR_PWD
-    BASE_DN = DEFAULT_BASE_DN
-    SEARCH_FILTER = DEFAULT_SEARCH_FILTER
-    RETRIEVE_ATTRS = DEFAULT_RETRIEVE_ATTRS
-    # END DEBUG'''
     ldap_parsed = []
 
     ldap_stats = LDAPConnector(LDAP_URL, LDAP_MONITOR_ADMIN, LDAP_MONITOR_PWD)
@@ -116,8 +99,6 @@ def get_stats():
     res_type, raw_data = ldap_stats.search(BASE_DN, SEARCH_FILTER, RETRIEVE_ATTRS)
     if res_type == ldap.RES_SEARCH_RESULT:
         ldap_parsed = walk_response(raw_data)
-        # print(str(ldap_parsed))
-        # return ldap_parsed
 
     return ldap_parsed
 
@@ -129,8 +110,8 @@ def configure_callback(conf):
     LDAP_MONITOR_ADMIN = DEFAULT_MONITOR_ADMIN
     LDAP_MONITOR_PWD = DEFAULT_MONITOR_PWD
     BASE_DN = DEFAULT_BASE_DN
-    SEARCH_FILTER = DEFAULT_SEARCH_FILTER
-    RETRIEVE_ATTRS = DEFAULT_RETRIEVE_ATTRS
+    SEARCH_FILTER = DEFAULT_USER_FILTER
+    RETRIEVE_ATTRS = DEFAULT_USER_ATTRS
 
 
     for node in conf.children:
@@ -152,9 +133,8 @@ def configure_callback(conf):
 
 ### DISPATCH TO COLLECTD
 def read_callback():
-    # logger('verb', "beginning read_callback")
+    logger('verb', "beginning read_callback")
 
-    # for conf in CONFIGS:
     stats = get_stats()
 
     if not stats:
@@ -180,25 +160,34 @@ def read_callback():
 
 
 def logger(t, msg):
-    if t == 'err':
-        collectd.error('%s: %s' % (NAME, msg))
-    elif t == 'warn':
-        collectd.warning('%s: %s' % (NAME, msg))
-    elif t == 'verb':
-        if VERBOSE_LOGGING:
-            collectd.info('%s: %s' % (NAME, msg))
+    if DEBUG_ON:
+        print(t, msg)
     else:
-        collectd.notice('%s: %s' % (NAME, msg))
+        if t == 'err':
+            collectd.error('%s: %s' % (NAME, msg))
+        elif t == 'warn':
+            collectd.warning('%s: %s' % (NAME, msg))
+        elif t == 'verb':
+            if VERBOSE_LOGGING:
+                collectd.info('%s: %s' % (NAME, msg))
+        else:
+            collectd.notice('%s: %s' % (NAME, msg))
 
 
-#
-# Register our callbacks to collectd
-#
-collectd.register_config(configure_callback)
-collectd.register_read(read_callback)
-#
 # DEBUG
-#
-# get_stats()
-# read_callback()
-#
+DEBUG_ON = True if os.getenv("DEBUG") == "ON" else False
+
+if DEBUG_ON:
+    test_data = json.load(open(os.path.join(sys.path[0], './__test.json'), 'r'))
+    LDAP_URL = test_data['LDAP_URL']
+    LDAP_MONITOR_ADMIN = test_data['LDAP_MONITOR_ADMIN']
+    LDAP_MONITOR_PWD = test_data['LDAP_MONITOR_PWD']
+    BASE_DN = test_data['BASE_DN']
+    SEARCH_FILTER = test_data['SEARCH_FILTER']
+    RETRIEVE_ATTRS = test_data['RETRIEVE_ATTRS']
+    read_callback()
+else:
+    # Register our callbacks to collectd
+    collectd.register_config(configure_callback)
+    collectd.register_read(read_callback)
+
