@@ -20,8 +20,9 @@ DEFAULT_MONITOR_PWD = 'pwd1234'
 DEFAULT_BASE_DN = 'cn=monitor'
 DEFAULT_SEARCH_FILTER = '(|(cn=Work Queue)(cn=JVM*)(cn=HTTP*)(cn=Gauge CPU*)(cn=Active*)%s)'
 DEFAULT_RETRIEVE_ATTRS = ['current-queue-size','current-administrative-session-queue-sizerejected-count','num-worker-threads','num-busy-worker-threads','value','average-connection-duration-millis','total-connections-accepted','total-invocation-count','current-active-connections','average-processing-time-millis','currentReservedMemoryMB','freeReservedMemoryMB','usedReservedMemoryMB','num-operations-in-progress','num-persistent-searches-in-progress']
+# DEFAULT_RETRIEVE_ATTRS = []
 DEFAULT_USER_FILTER = ''
-DEFAULT_USER_ATTRS = ''
+DEFAULT_USER_ATTRS = []
 METRIC_TYPES = {
   'cpu.load': ('cpu_load', 'gauge')
 }
@@ -61,7 +62,7 @@ class LDAPConnector:
             # using sync search
             # esc_search_filter = ldap_filter.escape_filter_chars(search_filter, 0)
             computed_filter = DEFAULT_SEARCH_FILTER % search_filter
-            computed_attrs = DEFAULT_RETRIEVE_ATTRS + retrieve_attrs.split(',')
+            computed_attrs = DEFAULT_RETRIEVE_ATTRS + retrieve_attrs
             sync_search = conn.search_s(base_dn, searchScope, computed_filter, computed_attrs)
             result = (ldap.RES_SEARCH_RESULT, sync_search)
         except ldap.LDAPError as e:
@@ -126,7 +127,8 @@ def configure_callback(conf):
         elif node.key == "search_filter":
             SEARCH_FILTER = node.values[0]
         elif node.key == "attributes":
-            RETRIEVE_ATTRS = node.values[0]
+            # setting this as array from source
+            RETRIEVE_ATTRS = node.values[0].split(',')
         else:
             logger('warn', 'Unknown config key: %s' % node.key)
 
@@ -175,7 +177,7 @@ def logger(t, msg):
 
 
 # DEBUG
-DEBUG_ON = True if os.getenv("DEBUG") == "ON" else False
+DEBUG_ON = True if os.getenv("LDAP_CN_MONITOR_DEBUG") == "ON" else False
 
 if DEBUG_ON:
     test_data = json.load(open(os.path.join(sys.path[0], './__test.json'), 'r'))
@@ -183,8 +185,9 @@ if DEBUG_ON:
     LDAP_MONITOR_ADMIN = test_data['LDAP_MONITOR_ADMIN']
     LDAP_MONITOR_PWD = test_data['LDAP_MONITOR_PWD']
     BASE_DN = test_data['BASE_DN']
-    SEARCH_FILTER = test_data['SEARCH_FILTER']
-    RETRIEVE_ATTRS = test_data['RETRIEVE_ATTRS']
+    # optional params
+    SEARCH_FILTER = test_data['SEARCH_FILTER'] if 'SEARCH_FILTER' in test_data.keys() else ''
+    RETRIEVE_ATTRS = test_data['RETRIEVE_ATTRS'].split(',') if 'RETRIEVE_ATTRS' in test_data.keys() else []
     read_callback()
 else:
     # Register our callbacks to collectd

@@ -23,7 +23,7 @@
           "program": "${workspaceFolder}/ldap_cn_monitor.py",
           "cwd": "${workspaceFolder}",
           "env": {
-            // "DEBUG":"ON"
+            "LDAP_CN_MONITOR_DEBUG":"ON"
           },
           "envFile": "${workspaceFolder}/.env",
           "debugOptions": [
