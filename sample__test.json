@@ -3,6 +3,6 @@
   "LDAP_MONITOR_ADMIN": "cn=Directory Manager",
   "LDAP_MONITOR_PWD": "pwd1234",
   "BASE_DN": "cn=monitor",
-  "SEARCH_FILTER": "(cn=Gauge*)",
-  "RETRIEVE_ATTRS": ""
+  "SEARCH_FILTER": "(cn=dc_example_dc_com_changes*)",
+  "RETRIEVE_ATTRS": "record-count,database-size-as-percentage-of-jvm-heap"
 }
